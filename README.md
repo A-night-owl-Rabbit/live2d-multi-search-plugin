@@ -1,56 +1,133 @@
-# 多引擎搜索（multi-search）Live2D 插件
+# multi-search · 多引擎搜索（my-neuro / live-2d 插件）
 
-适用于 **my-neuro / live-2d** 插件体系的联网搜索扩展：整合 **Tavily**、**SerpApi**（Google / Bing / DuckDuckGo / Google Scholar）与可选的 **OpenAI 兼容 API**（如 SiliconFlow）对结果做提炼摘要。
+面向 **my-neuro** 的 **live-2d** 内置插件体系：聚合 **Tavily**（AI 向搜索）、**SerpApi**（Google / Bing / DuckDuckGo / Google Scholar）与 **OpenAI 兼容 Chat Completions**（默认示例为 **硅基流动 SiliconFlow**）对网页结果做二次提炼，供主智能体调用。
 
-## 功能概览
+本仓库已包含 **`node_modules`**（与发布时依赖版本一致）。你也可以删除该目录后在本文件夹执行 `npm install` 自行安装依赖。
 
-| 工具 | 说明 |
-|------|------|
-| `vsearch` | 按主题与多关键词并发检索（Tavily），再经 LLM 整合为结构化报告 |
-| `web_search` | 优先 Tavily，失败时回退 Google/Bing |
-| `google_search` / `bing_search` / `duckduckgo_search` | 经 SerpApi 拉取网页结果并提炼 |
-| `scholar_search` | Google 学术检索并提炼 |
+---
 
-## 安装方式
+## 功能与 API 依赖一览
 
-1. 将本目录完整复制到主程序下的：
+| 工具 | 作用 | 主要依赖 | 说明 |
+|------|------|----------|------|
+| `vsearch` | 多关键词并发搜索 + 整合报告 | **Tavily** + **提炼 LLM** | 首选「深度」场景 |
+| `web_search` | 快速搜索 | **Tavily**（主）+ **提炼 LLM**；失败时回退 **SerpApi** | 回退走 Google/Bing |
+| `google_search` | Google 网页 | **SerpApi** + **提炼 LLM** | 可在参数里指定 `gl` / `hl` |
+| `bing_search` | Bing 网页 | **SerpApi** + **提炼 LLM** | |
+| `duckduckgo_search` | DuckDuckGo | **SerpApi** + **提炼 LLM** | |
+| `scholar_search` | Google 学术 | **SerpApi** + **提炼 LLM** | |
 
-   `live-2d/plugins/built-in/multi-search`
+**结论：**
 
-2. 在本目录执行依赖安装：
+- 只用 `vsearch` / `web_search` 的主路径：**至少要 Tavily + 提炼 LLM**。  
+- 使用 Google/Bing/DuckDuckGo/Scholar 或 `web_search` 回退：**还要 SerpApi + 提炼 LLM**。  
+- **提炼 LLM** 与主对话模型无关，仅负责把搜索原始文本压缩成摘要；需支持 `POST {base}/chat/completions`。
 
-   ```bash
-   npm install
-   ```
+---
 
-3. **配置密钥（必做）**  
-   - 将 `plugin_config.example.json` 复制为 **`plugin_config.json`**（若主程序使用其它配置方式，按其文档放置）。  
-   - 在 `plugin_config.json` 中填写你的 **Tavily**、**SerpApi** 与 **提炼用 LLM** 的 API Key。  
-   - **切勿**将含真实密钥的 `plugin_config.json` 提交到公开仓库。
+## 安装位置
 
-## 配置项说明
+将整个文件夹放到主工程：
 
-- **tavily_api_key**：Tavily 密钥（`vsearch`、`web_search` 主路径）。  
-- **serp_api_key**：SerpApi 密钥（Google/Bing/DuckDuckGo/Scholar）。  
-- **synthesis**：提炼用 LLM（需兼容 OpenAI Chat Completions 格式），可配置 `api_url`、`model`、`api_key`。  
-- **max_concurrent / max_retries / retry_delay**：并发、重试与间隔（毫秒）。
+`live-2d/plugins/built-in/multi-search`
 
-具体字段结构见仓库内 `plugin_config.example.json`。
+插件入口为 `index.js`，其中：
 
-## 依赖与运行环境
+`require('../../../js/core/plugin-base.js')`
 
-- Node.js（与主程序一致即可）  
-- npm 包：`axios`（见 `package.json`）  
-- 插件基类路径：源码中 `require('../../../js/core/plugin-base.js')` 相对于 **built-in 插件目录**，请保持与主工程目录结构一致，否则需自行调整引用路径。
+路径相对于 **built-in 插件目录**，请勿单独挪动 `js` 目录结构，否则需自行改引用。
+
+---
+
+## 配置怎么填（总流程）
+
+1. 复制 **`plugin_config.example.json`** → 改名为 **`plugin_config.json`**（若 my-neuro 在界面里配置插件，则按界面字段对应填写，本质一致）。  
+2. 按下面「各 API 去哪找」拿到 Key，填进 JSON 里对应项的 **`value`** 字段（字符串项填字符串；数字项填数字）。  
+3. **永远不要**把带真实 Key 的 `plugin_config.json` 提交到公开仓库或发给别人。
+
+下面「配置项与代码读取」一节说明插件实际读取的字段名；若你用的主程序把嵌套结构展平成别的名字，以主程序文档为准。
+
+---
+
+## 各 API 去哪申请、填到哪里
+
+### 1. Tavily（`tavily_api_key`）
+
+- **用途**：`vsearch`、`web_search` 的主搜索；向 `https://api.tavily.com/search` 发请求。  
+- **官网 / 控制台**：[https://www.tavily.com/](https://www.tavily.com/) → 登录后进入 **Tavily 控制台**（常见入口为 [https://app.tavily.com/](https://app.tavily.com/)，以官网当前说明为准）。  
+- **文档**：[https://docs.tavily.com/guides/quickstart](https://docs.tavily.com/guides/quickstart)  
+- **密钥形态**：一般为 **`tvly-` 开头**的一串字符（具体以前台显示为准）。  
+- **填到哪里**：`plugin_config.json` 里 **`tavily_api_key`** 对象的 **`value`**。  
+- **计费**：有免费额度，超出后按官网套餐计费；请在控制台查看用量与账单。
+
+### 2. SerpApi（`serp_api_key`）
+
+- **用途**：`google_search`、`bing_search`、`duckduckgo_search`、`scholar_search`，以及 `web_search` 在 Tavily 失败时的回退；请求 `https://serpapi.com/search.json`。  
+- **官网**：[https://serpapi.com/](https://serpapi.com/)  
+- **查看 / 管理 Key**（登录后）：[https://serpapi.com/manage-api-key](https://serpapi.com/manage-api-key)  
+- **填到哪里**：**`serp_api_key`** 对象的 **`value`**。  
+- **计费**：按次计费，有免费搜索次数（以账户页为准）；不同引擎可能消耗不同额度。
+
+### 3. 提炼用 LLM（`synthesis`：硅基流动或其它 OpenAI 兼容服务）
+
+- **用途**：把各搜索引擎返回的长文本提炼成短摘要；请求为  
+  `POST {api_url}/chat/completions`  
+  Header：`Authorization: Bearer <你的 API Key>`  
+- **默认示例：硅基流动 SiliconFlow**  
+  - 控制台（注册 / 登录 / 密钥）：[https://cloud.siliconflow.cn/](https://cloud.siliconflow.cn/)（若打不开可尝试官网 [https://www.siliconflow.cn/](https://www.siliconflow.cn/) 的指引）。  
+  - **API Key**：在控制台的 **API 密钥** 页面创建并复制（形态多为 `sk-` 开头，以实际显示为准）。  
+  - **Base URL**：填 **`https://api.siliconflow.cn/v1`**（**不要**在末尾再加 `/chat/completions`，插件会自动拼）。  
+  - **模型名 `model`**：填硅基流动控制台里展示的模型 ID，例如默认的 `deepseek-ai/DeepSeek-V3.2`；以你账号可用模型列表为准。  
+- **填到哪里**（本仓库的 `plugin_config.example.json` 结构）：  
+  - **`synthesis.fields.api_key`** → **`value`**  
+  - **`synthesis.fields.api_url`** → **`value`**  
+  - **`synthesis.fields.model`** → **`value`**  
+- **换其它厂商**（OpenAI、Azure OpenAI、OneAPI、自建 vLLM 等）：只要兼容 **OpenAI Chat Completions** 的请求与响应格式即可；将 **`api_url`** 改为该服务的 **v1 根地址**（同样不要带 `/chat/completions`），**`api_key` / `model`** 改为对应值。
+
+### 4. 并发与重试（可选）
+
+| 配置项 | 含义 |
+|--------|------|
+| `max_concurrent` | `vsearch` 同时发起的最大关键词数 |
+| `max_retries` | 搜索或提炼失败时的最大重试次数 |
+| `retry_delay` | 重试间隔（**毫秒**） |
+
+---
+
+## 插件代码实际读取的配置名（供对照）
+
+`index.js` 中会从 `getPluginConfig()` 读取（主程序可能由 UI 写入 JSON 再注入）：
+
+| 逻辑字段 | 典型来源 |
+|----------|----------|
+| `tavilyKey` | `tavily_api_key` |
+| `serpKey` | `serp_api_key` |
+| `sfKey` | `synthesis_api_key`（或与 UI 展平后的等价字段） |
+| `sfUrl` | `synthesis_api_url`，默认 `https://api.siliconflow.cn/v1` |
+| `model` | `synthesis_model` |
+| `maxConcurrent` / `maxRetries` / `retryDelay` | `max_concurrent` / `max_retries` / `retry_delay` |
+
+若你使用的 my-neuro 版本把 **`synthesis`** 嵌套对象展平成 `synthesis_api_key` 等顶层键，请按界面说明填写，并与上表对应。
+
+---
+
+## 常见问题
+
+- **401 / 密钥无效**：检查 Key 是否复制完整、是否多空格；硅基流动 / OpenAI 类服务是否为 **Bearer** 方式。  
+- **429 / 额度不足**：到 Tavily、SerpApi、LLM 厂商控制台查看配额与账单。  
+- **能搜不能提炼**：说明搜索 OK，但 `{api_url}/chat/completions` 失败——检查 **`api_url`**、**`model`** 名称和 **Key** 是否匹配该服务。  
+- **只想少配 Key**：至少配 **Tavily + 提炼 LLM** 可使用 `vsearch` / `web_search` 主路径；不配 SerpApi 时，依赖 Serp 的工具与部分回退会失败。
+
+---
+
+## 仓库内容说明
+
+- 含 **`node_modules`**（便于离线或与锁定版本一致）；也可删除后执行 `npm install`。  
+- **不含** `plugin_config.json`，仅提供 **`plugin_config.example.json`** 模板。  
+- 使用第三方 API 须遵守各服务商条款；**勿将密钥提交到 Git**。
+
+---
 
 ## 许可证与声明
 
-- 本仓库为从 my-neuro **built-in** 插件拆出的独立副本，便于分享与版本管理。  
-- 使用第三方搜索与 LLM API 时，请遵守各服务商条款与计费规则。  
-- **安全提示**：若你曾在其它地方泄露过 API Key，请尽快在对应平台**轮换密钥**。
-
-## 仓库中不包含的内容
-
-- 不含 `node_modules`（请本地 `npm install`）。  
-- 不含 `plugin_config.json`（仅提供 `plugin_config.example.json` 模板）。  
-- 不含任何个人敏感信息或已填写的密钥。
+本仓库为从 my-neuro **built-in** 插件拆出的独立副本，便于分享与版本管理；与上游版权以原项目为准。
