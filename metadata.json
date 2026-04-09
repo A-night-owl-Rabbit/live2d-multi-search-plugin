@@ -1,0 +1,10 @@
+{
+  "name": "multi-search",
+  "displayName": "多引擎搜索",
+  "version": "1.0.0",
+  "author": "official",
+  "description": "统合 VSearch 语义并发搜索与多引擎搜索（Google/Bing/DuckDuckGo/Scholar/Tavily），所有结果经 AI 深度提炼",
+  "framework_version": ">=1.0.0",
+  "main": "index.js",
+  "lang": "js"
+}
