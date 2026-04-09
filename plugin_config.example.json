@@ -1,0 +1,65 @@
+{
+  "tavily_api_key": {
+    "title": "Tavily API Key",
+    "description": "Tavily 搜索服务的 API 密钥，用于 VSearch 语义搜索和快速搜索（web_search）",
+    "type": "string",
+    "default": "",
+    "value": ""
+  },
+  "serp_api_key": {
+    "title": "SerpApi Key",
+    "description": "SerpApi 的 API 密钥，用于 Google / Bing / DuckDuckGo / Scholar 搜索",
+    "type": "string",
+    "default": "",
+    "value": ""
+  },
+  "synthesis": {
+    "title": "AI 提炼配置",
+    "description": "下级智能体（用于搜索结果提炼）的 LLM 配置",
+    "type": "object",
+    "fields": {
+      "api_key": {
+        "title": "API Key",
+        "description": "提炼用 LLM 的 API Key（SiliconFlow 等兼容 OpenAI 格式的服务）",
+        "type": "string",
+        "default": "",
+        "value": ""
+      },
+      "api_url": {
+        "title": "API 地址",
+        "description": "提炼用 LLM 的 API 基础地址（不含 /chat/completions）",
+        "type": "string",
+        "default": "https://api.siliconflow.cn/v1",
+        "value": "https://api.siliconflow.cn/v1"
+      },
+      "model": {
+        "title": "模型名称",
+        "description": "提炼用 LLM 的模型标识",
+        "type": "string",
+        "default": "deepseek-ai/DeepSeek-V3.2",
+        "value": "deepseek-ai/DeepSeek-V3.2"
+      }
+    }
+  },
+  "max_concurrent": {
+    "title": "VSearch 最大并发数",
+    "description": "VSearch 语义搜索时，同时发起的最大搜索关键词数量",
+    "type": "int",
+    "default": 4,
+    "value": 4
+  },
+  "max_retries": {
+    "title": "最大重试次数",
+    "description": "搜索或 AI 提炼失败时的最大重试次数",
+    "type": "int",
+    "default": 2,
+    "value": 2
+  },
+  "retry_delay": {
+    "title": "重试间隔（毫秒）",
+    "description": "每次重试之间的等待时间",
+    "type": "int",
+    "default": 2000,
+    "value": 2000
+  }
+}
