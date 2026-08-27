@@ -14,15 +14,23 @@ class MultiSearchPlugin extends Plugin {
 
     _loadCfg() {
         const c = this.context.getPluginConfig() || {};
+        const synthesis = c.synthesis || {};
+        // 关键：下面几个 int 字段允许 0（不重试 / 立即重试），不能用 `|| default` 吞掉
+        const num = (v, def, min = 0) => {
+            const n = Number(v);
+            return Number.isFinite(n) && n >= min ? n : def;
+        };
         this._c = {
-            tavilyKey:    c.tavily_api_key       || '',
-            serpKey:       c.serp_api_key          || '',
-            sfKey:         c.synthesis_api_key      || '',
-            sfUrl:         (c.synthesis_api_url     || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''),
-            model:         c.synthesis_model        || 'deepseek-ai/DeepSeek-V3.2',
-            maxConcurrent: parseInt(c.max_concurrent) || 4,
-            maxRetries:    parseInt(c.max_retries)    || 2,
-            retryDelay:    parseInt(c.retry_delay)    || 2000,
+            tavilyKey:     c.tavily_api_key || '',
+            serpKey:       c.serp_api_key || '',
+            providerId:    synthesis.provider_id || '',
+            providerModel: synthesis.model_id || '',
+            sfKey:         synthesis.api_key || c.synthesis_api_key || '',
+            sfUrl:         (synthesis.api_url || c.synthesis_api_url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''),
+            model:         synthesis.model || c.synthesis_model || 'deepseek-ai/DeepSeek-V3.2',
+            maxConcurrent: num(c.max_concurrent, 4, 1),
+            maxRetries:    num(c.max_retries, 2, 0),
+            retryDelay:    num(c.retry_delay, 2000, 0),
         };
     }
 
@@ -44,19 +52,23 @@ class MultiSearchPlugin extends Plugin {
     async _synthesize(query, rawData, systemPrompt) {
         try {
             return await this._retry(async () => {
-                const resp = await axios.post(`${this._c.sfUrl}/chat/completions`, {
-                    model: this._c.model,
+                const providerId = String(this._c.providerId || '').trim();
+                const legacyReady = !providerId && this._c.sfKey && this._c.sfUrl;
+                return await this.context.callLLM('', {
+                    provider_id: providerId || undefined,
+                    model: providerId
+                        ? (String(this._c.providerModel || '').trim() || undefined)
+                        : (legacyReady ? this._c.model : undefined),
+                    api_url: legacyReady ? this._c.sfUrl : undefined,
+                    api_key: legacyReady ? this._c.sfKey : undefined,
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: query + '\n\n' + rawData }
                     ],
                     temperature: 0.3,
-                    max_tokens: 3000
-                }, {
-                    headers: { 'Authorization': `Bearer ${this._c.sfKey}`, 'Content-Type': 'application/json' },
-                    timeout: 60000
+                    max_tokens: 3000,
+                    timeout_ms: 60000
                 });
-                return resp.data.choices[0].message.content;
             }, 'AI提炼');
         } catch (e) {
             console.error(`${TAG} AI提炼最终失败:`, e.message);
