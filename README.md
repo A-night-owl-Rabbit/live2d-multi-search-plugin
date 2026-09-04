@@ -1,10 +1,22 @@
 # multi-search · 多引擎搜索（my-neuro / live-2d 插件）
 
+> [my-neuro(肥牛)](https://github.com/morettt/my-neuro) 内置插件发布仓库 · 需要 Tavily（必选）+ SerpApi（可选）+ 提炼 LLM · 当前版本：1.1.0
+
 面向 **my-neuro** 的 **live-2d** 内置插件体系：聚合 **Tavily**（AI 向搜索）、**SerpApi**（Google / Bing / DuckDuckGo / Google Scholar）与 **OpenAI 兼容 Chat Completions**（默认示例为 **硅基流动 SiliconFlow**）对网页结果做二次提炼，供主智能体调用。
 
-本仓库已包含 **`node_modules`**（与发布时依赖版本一致）。你也可以删除该目录后在本文件夹执行 `npm install` 自行安装依赖。
+## 这是什么？（给完全没接触过的小白）
 
----
+- **插件**：给肥牛加功能的"扩展包"，放进插件文件夹、重启一次就生效
+- 装上它，肥牛就有一套**全家桶搜索引擎**：可以普通搜网页、搜学术、多关键词并发"深搜"，而且搜回来的长篇网页内容会先被一个 AI 提炼成短摘要再念给你
+- **至少配两把钥匙就能用**：Tavily（搜索引擎，有免费额度）+ 一个提炼用的 LLM Key（硅基流动等）；想用谷歌/必应/学术搜索再额外配 SerpApi
+- 配好后正常聊天即可：「帮我搜一下 xx」AI 自己会挑合适的搜索工具
+
+## 环境要求
+
+- my-neuro（live-2d 桌宠）近期版本
+- **Tavily API Key**（必选，有免费额度）+ **提炼 LLM**（硅基流动等 OpenAI 兼容服务）
+- 可选：SerpApi Key（要用 Google/Bing/DuckDuckGo/学术搜索才需要）
+- npm 依赖已随仓库 `node_modules` 附带，克隆即用
 
 ## 功能与 API 依赖一览
 
@@ -25,7 +37,15 @@
 
 ---
 
-## 安装位置
+## 安装教程
+
+**方式一（推荐）：WebUI 插件广场一键安装**
+
+1. 打开 my-neuro 的 WebUI 控制面板 → 「广场」→ 插件广场
+2. 找到本插件，点击安装（已装过则点更新）
+3. 重启 Live2D 桌宠
+
+**方式二：手动安装**
 
 将整个文件夹放到主工程：
 
@@ -36,6 +56,8 @@
 `require('../../../js/core/plugin-base.js')`
 
 路径相对于 **built-in 插件目录**，请勿单独挪动 `js` 目录结构，否则需自行改引用。
+
+> 本仓库已包含 **`node_modules`**（与发布时依赖版本一致），克隆即用；你也可以删除该目录后在本文件夹执行 `npm install` 自行安装依赖。
 
 ---
 
@@ -119,6 +141,31 @@
 - **只想少配 Key**：至少配 **Tavily + 提炼 LLM** 可使用 `vsearch` / `web_search` 主路径；不配 SerpApi 时，依赖 Serp 的工具与部分回退会失败。
 
 ---
+
+## 使用教程（照着说就行）
+
+配好 Key 并重启后，正常聊天即可：
+
+- 「搜一下最近的显卡行情」→ 主模型自动选 `web_search` 快搜
+- 「深度调研一下 2026 年各家 AI 桌面助手，做个对比」→ 触发 `vsearch` 多关键词并发深搜并整合报告
+- 「在 Google 学术上找几篇关于 xx 的论文」→ `scholar_search`
+- 搜回来的内容由提炼 LLM 压缩成摘要，不占主对话太多上下文
+
+## 故障排查
+
+1. 日志搜 `multi-search` 或 `vsearch`，可看到每次搜索与提炼的请求记录
+2. 全部工具都失败：优先检查 Tavily Key 与提炼 LLM 三件套（地址/Key/模型名）
+3. 还有问题请到 [本仓库 Issues](https://github.com/A-night-owl-Rabbit/live2d-multi-search-plugin/issues) 提问
+
+## 更新与卸载
+
+- **更新**：插件广场点更新，或手动覆盖 `built-in/multi-search/` 后重启；配置不会被冲掉
+- **卸载**：WebUI「插件管理」停用并删除 `live-2d/plugins/built-in/multi-search/` 文件夹即可
+
+## 版本
+
+- **1.1.0**：vsearch 深搜 + 多引擎聚合 + AI 提炼（详见功能一览表）。
+- 本教程最后更新：2026-09
 
 ## 仓库内容说明
 
